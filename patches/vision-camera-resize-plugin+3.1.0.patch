@@ -1,0 +1,64 @@
+diff --git a/node_modules/vision-camera-resize-plugin/android/src/main/cpp/ResizePlugin.cpp b/node_modules/vision-camera-resize-plugin/android/src/main/cpp/ResizePlugin.cpp
+index f8f500a..b79aee5 100644
+--- a/node_modules/vision-camera-resize-plugin/android/src/main/cpp/ResizePlugin.cpp
++++ b/node_modules/vision-camera-resize-plugin/android/src/main/cpp/ResizePlugin.cpp
+@@ -132,6 +132,21 @@ std::string rectToString(int x, int y, int width, int height) {
+ }
+ 
+ FrameBuffer ResizePlugin::cropARGBBuffer(const FrameBuffer& frameBuffer, int x, int y, int width, int height) {
++  // Calculate padding to maintain aspect ratio
++  double aspectRatio = static_cast<double>(frameBuffer.width) / frameBuffer.height;
++  double targetAspectRatio = static_cast<double>(width) / height;
++  int paddingX = 0;
++  int paddingY = 0;
++  if (targetAspectRatio > aspectRatio) {
++    paddingY = (width / aspectRatio - height) / 2;
++  } else {
++    paddingX = (height * aspectRatio - width) / 2;
++  }
++  x -= paddingX;
++  y -= paddingY;
++  width += 2 * paddingX;
++  height += 2 * paddingY;
++
+   if (width == frameBuffer.width && height == frameBuffer.height && x == 0 && y == 0) {
+     // already in correct size.
+     return frameBuffer;
+diff --git a/node_modules/vision-camera-resize-plugin/ios/ResizePlugin.mm b/node_modules/vision-camera-resize-plugin/ios/ResizePlugin.mm
+index f52d20f..7e9d404 100644
+--- a/node_modules/vision-camera-resize-plugin/ios/ResizePlugin.mm
++++ b/node_modules/vision-camera-resize-plugin/ios/ResizePlugin.mm
+@@ -538,11 +538,9 @@ - (id)callback:(Frame*)frame withArguments:(NSDictionary*)arguments {
+       double targetAspectRatio = scaleWidth / scaleHeight;
+ 
+       if (aspectRatio > targetAspectRatio) {
+-        // 1920x1080
+         cropWidth = frame.height * targetAspectRatio;
+         cropHeight = frame.height;
+       } else {
+-        // 1080x1920
+         cropWidth = frame.width;
+         cropHeight = frame.width / targetAspectRatio;
+       }
+@@ -554,6 +552,21 @@ - (id)callback:(Frame*)frame withArguments:(NSDictionary*)arguments {
+     }
+   }
+ 
++  // Calculate padding to maintain aspect ratio
++  double paddingX = 0;
++  double paddingY = 0;
++  double aspectRatio = (double)frame.width / (double)frame.height;
++  if (cropWidth / cropHeight > aspectRatio) {
++    paddingY = (cropWidth / aspectRatio - cropHeight) / 2;
++  } else {
++    paddingX = (cropHeight * aspectRatio - cropWidth) / 2;
++  }
++  cropX -= paddingX;
++  cropY -= paddingY;
++  cropWidth += 2 * paddingX;
++  cropHeight += 2 * paddingY;
++  NSLog(@"ResizePlugin: Cropping with padding to %f x %f at (%f, %f).", cropWidth, cropHeight, cropX, cropY);
++
+   ConvertPixelFormat pixelFormat = BGRA;
+   NSString* pixelFormatString = arguments[@"pixelFormat"];
+   if (pixelFormatString != nil) {

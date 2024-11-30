@@ -7,16 +7,16 @@ export const DebugView = ({
   canvasSize,
   values,
 }: {
-  canvasSize: number;
+  canvasSize: {width: number; height: number};
   values: Record<BodyPart, BodyPartValue>;
 }) => {
   return (
     <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
       <Canvas
         style={{
-          width: canvasSize,
-          height: canvasSize,
-          backgroundColor: 'rgba(255,255,255,0.2)',
+          width: canvasSize.width,
+          height: canvasSize.height,
+          backgroundColor: 'rgba(255,255,255,0.5)',
         }}>
         {Object.entries(values).map(([key, value]) => {
           return (
