@@ -1,0 +1,108 @@
+diff --git a/node_modules/react-native-fast-tflite/android/CMakeLists.txt b/node_modules/react-native-fast-tflite/android/CMakeLists.txt
+index b603d83..100468c 100644
+--- a/node_modules/react-native-fast-tflite/android/CMakeLists.txt
++++ b/node_modules/react-native-fast-tflite/android/CMakeLists.txt
+@@ -11,7 +11,7 @@ find_package(fbjni REQUIRED CONFIG)
+ find_library(
+   TFLITE
+   tensorflowlite_jni
+-  PATHS "./src/main/cpp/lib/tensorflow/jni/${ANDROID_ABI}"
++  PATHS "./src/main/cpp/lib/litert/jni/${ANDROID_ABI}"
+   NO_DEFAULT_PATH
+   NO_CMAKE_FIND_ROOT_PATH
+ )
+@@ -19,7 +19,7 @@ find_library(
+ find_library(
+   TFLITE_GPU
+   tensorflowlite_gpu_jni
+-  PATHS "./src/main/cpp/lib/tensorflow/jni/${ANDROID_ABI}"
++  PATHS "./src/main/cpp/lib/litert/jni/${ANDROID_ABI}"
+   NO_DEFAULT_PATH
+   NO_CMAKE_FIND_ROOT_PATH
+ )
+@@ -42,7 +42,7 @@ target_include_directories(
+   PRIVATE
+   "../cpp"
+   "src/main/cpp"
+-  "../tensorflow/"
++  "src/main/cpp/lib/litert/headers"
+   "${NODE_MODULES_DIR}/react-native/ReactCommon"
+   "${NODE_MODULES_DIR}/react-native/ReactCommon/callinvoker"
+   "${NODE_MODULES_DIR}/react-native/ReactAndroid/src/main/jni/react/turbomodule" # <-- CallInvokerHolder JNI wrapper
+@@ -54,8 +54,19 @@ target_link_libraries(
+   ${PACKAGE_NAME}
+   android                         # <-- log
+   ReactAndroid::jsi               # <-- jsi.h
+-  ReactAndroid::reactnativejni    # <-- CallInvokerImpl
+   fbjni::fbjni                    # <-- fbjni.h
+   ${TFLITE}
+   ${TFLITE_GPU}
+ )
++
++if(ReactAndroid_VERSION_MINOR GREATER_EQUAL 76)
++  target_link_libraries(
++    ${PACKAGE_NAME}
++    ReactAndroid::reactnative     # <-- RN merged so
++  )
++else()
++  target_link_libraries(
++    ${PACKAGE_NAME}
++    ReactAndroid::reactnativejni  # <-- CallInvokerImpl
++  )
++endif()
+diff --git a/node_modules/react-native-fast-tflite/android/build.gradle b/node_modules/react-native-fast-tflite/android/build.gradle
+index 43fc455..9ce63a5 100644
+--- a/node_modules/react-native-fast-tflite/android/build.gradle
++++ b/node_modules/react-native-fast-tflite/android/build.gradle
+@@ -80,9 +80,12 @@ android {
+             "**/libc++_shared.so",
+             "**/libfbjni.so",
+             "**/libjsi.so",
++            "**/libreactnative.so",
+             "**/libreactnativejni.so",
+             "**/libturbomodulejsijni.so",
+             "**/libreact_nativemodule_core.so",
++            "**/libtensorflowlite_jni.so",
++            "**/libtensorflowlite_gpu_jni.so",
+     ]
+   }
+   buildTypes {
+@@ -123,12 +126,28 @@ dependencies {
+   implementation "com.facebook.react:react-native:+"
+ 
+   // Tensorflow Lite .aar (includes C API via prefabs)
+-  implementation "org.tensorflow:tensorflow-lite:2.16.1"
+-  extractSO("org.tensorflow:tensorflow-lite:2.16.1")
++  implementation "com.google.ai.edge.litert:litert:1.0.1"
++  extractSO("com.google.ai.edge.litert:litert:1.0.1")
++  extractHeaders("com.google.ai.edge.litert:litert:1.0.1")
+ 
+   // Tensorflow Lite GPU delegate
+-  implementation "org.tensorflow:tensorflow-lite-gpu:2.16.1"
+-  extractSO("org.tensorflow:tensorflow-lite-gpu:2.16.1")
++  implementation "com.google.ai.edge.litert:litert-gpu:1.0.1"
++  extractSO("com.google.ai.edge.litert:litert-gpu:1.0.1")
++  extractHeaders("com.google.ai.edge.litert:litert-gpu:1.0.1")
++}
++
++task extractAARHeaders {
++  doLast {
++    configurations.extractHeaders.files.each {
++      def file = it.absoluteFile
++      def packageName = file.name.tokenize('-')[0]
++      copy {
++        from zipTree(file)
++        into "src/main/cpp/lib/$packageName/"
++        include "**/*.h"
++      }
++    }
++  }
+ }
+ 
+ task extractSOFiles {
+@@ -167,4 +186,5 @@ def nativeBuildDependsOn(dependsOnTask) {
+ 
+ afterEvaluate {
+   nativeBuildDependsOn(extractSOFiles)
++  nativeBuildDependsOn(extractAARHeaders)
+ }
